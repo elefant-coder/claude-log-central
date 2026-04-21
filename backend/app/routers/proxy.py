@@ -191,10 +191,15 @@ async def _handle_non_streaming(
             except Exception as e:
                 logger.error("Failed to save log", error=str(e))
 
+            # Strip hop-by-hop and encoding headers (httpx auto-decompresses)
+            safe_headers = {
+                k: v for k, v in resp.headers.items()
+                if k.lower() not in ("content-encoding", "content-length", "transfer-encoding")
+            }
             return Response(
                 content=resp.content,
                 status_code=resp.status_code,
-                headers=dict(resp.headers),
+                headers=safe_headers,
             )
 
         except httpx.TimeoutException:
