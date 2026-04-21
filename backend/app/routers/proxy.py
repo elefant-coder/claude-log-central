@@ -110,19 +110,20 @@ async def proxy_messages(request: Request):
     # Check if streaming
     is_stream = body.get("stream", False)
 
-    # Forward headers (pass through Anthropic API key)
-    forward_headers = {
-        "content-type": "application/json",
-        "anthropic-version": request.headers.get("anthropic-version", "2023-06-01"),
-    }
-
-    # Use client's API key if provided, otherwise pass through
-    auth_header = request.headers.get("x-api-key") or request.headers.get("authorization", "")
-    if auth_header:
-        if auth_header.startswith("Bearer "):
-            forward_headers["x-api-key"] = auth_header.removeprefix("Bearer ")
-        else:
-            forward_headers["x-api-key"] = auth_header
+    # Forward all anthropic-* headers and auth headers
+    forward_headers = {"content-type": "application/json"}
+    for key, value in request.headers.items():
+        lower = key.lower()
+        if lower.startswith("anthropic-"):
+            forward_headers[key] = value
+        elif lower == "x-api-key":
+            forward_headers[key] = value
+        elif lower == "authorization":
+            # Convert Bearer token to x-api-key for Anthropic
+            if value.startswith("Bearer "):
+                forward_headers["x-api-key"] = value.removeprefix("Bearer ")
+            else:
+                forward_headers["authorization"] = value
 
     # Extract tool results from request
     tool_results = extract_tool_results(messages)
