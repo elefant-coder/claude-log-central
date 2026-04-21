@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { DashboardView } from "@/components/dashboard-view";
 import { LogsView } from "@/components/logs-view";
 import { SessionsView } from "@/components/sessions-view";
@@ -16,16 +16,16 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
+const subscribe = () => () => {};
+const getSnapshot = () => typeof window !== "undefined" ? localStorage.getItem("clc_api_key") : null;
+const getServerSnapshot = () => null;
+
 function AuthGate({ children }: { children: React.ReactNode }) {
-  const [isAuthed, setIsAuthed] = useState(false);
+  const storedKey = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const [authed, setAuthed] = useState(false);
   const [input, setInput] = useState("");
 
-  useEffect(() => {
-    const stored = localStorage.getItem("clc_api_key");
-    if (stored) {
-      setIsAuthed(true);
-    }
-  }, []);
+  const isAuthed = authed || !!storedKey;
 
   if (isAuthed) return <>{children}</>;
 
@@ -43,7 +43,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
           onSubmit={(e) => {
             e.preventDefault();
             localStorage.setItem("clc_api_key", input);
-            setIsAuthed(true);
+            setAuthed(true);
           }}
           className="space-y-3"
         >
