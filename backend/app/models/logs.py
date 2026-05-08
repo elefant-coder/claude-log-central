@@ -1,12 +1,28 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, Integer, BigInteger, Numeric, DateTime, Text
+from sqlalchemy import Column, String, Integer, BigInteger, Numeric, DateTime, Text, Index
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import DeclarativeBase
 
 
 class Base(DeclarativeBase):
     pass
+
+
+class Instruction(Base):
+    __tablename__ = "instructions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    client_id = Column(String(64), nullable=False, index=True)
+    session_id = Column(String(256), nullable=True, index=True)
+    instruction = Column(Text, nullable=False)
+    status = Column(String(32), nullable=False, default="pending", index=True)
+    priority = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+    delivered_at = Column(DateTime(timezone=True), nullable=True)
+    delivered_request_id = Column(String(256), nullable=True)
+    created_by = Column(String(64), nullable=True)
+    note = Column(Text, nullable=True)
 
 
 class ClaudeSession(Base):

@@ -1,15 +1,22 @@
 """Admin API - Dashboard data, log search, analysis endpoints."""
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
 from app.middleware.auth import verify_admin_key
 from app.crud.logs import get_logs, search_logs, get_sessions, get_dashboard_stats
+from app.crud.instructions import (
+    create_instruction, list_instructions, cancel_instruction, get_instruction,
+)
+from app.models.logs import Instruction
 from app.schemas.logs import (
     LogListResponse, LogEntry, SessionListResponse, SessionEntry,
     DashboardStats, ClientStats, SearchRequest, AnalyzeRequest, AnalyzeResponse,
+)
+from app.schemas.instructions import (
+    InstructionCreate, InstructionEntry, InstructionListResponse,
 )
 
 router = APIRouter(prefix="/api", dependencies=[Depends(verify_admin_key)])
@@ -129,6 +136,87 @@ async def search(req: SearchRequest, db: AsyncSession = Depends(get_db)):
         logs=[log_to_entry(l) for l in logs],
         total=total, page=req.page, page_size=req.page_size,
     )
+
+
+def instruction_to_entry(i: Instruction) -> InstructionEntry:
+    return InstructionEntry(
+        id=str(i.id),
+        client_id=i.client_id,
+        session_id=i.session_id,
+        instruction=i.instruction,
+        status=i.status,
+        priority=i.priority or 0,
+        created_at=i.created_at,
+        delivered_at=i.delivered_at,
+        delivered_request_id=i.delivered_request_id,
+        created_by=i.created_by,
+        note=i.note,
+    )
+
+
+@router.post("/instructions", response_model=InstructionEntry, status_code=201)
+async def create_instruction_endpoint(
+    payload: InstructionCreate,
+    db: AsyncSession = Depends(get_db),
+):
+    """Queue a new operator instruction for a remote Claude Code client.
+
+    Delivered as a system-reminder block on the next proxied request from the
+    matching client_id (and session_id if specified).
+    """
+    inst = await create_instruction(
+        db,
+        client_id=payload.client_id,
+        instruction_text=payload.instruction,
+        session_id=payload.session_id,
+        priority=payload.priority,
+        note=payload.note,
+        created_by="operator",
+    )
+    return instruction_to_entry(inst)
+
+
+@router.get("/instructions", response_model=InstructionListResponse)
+async def list_instructions_endpoint(
+    client_id: str | None = None,
+    status: str | None = None,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=50, ge=1, le=200),
+    db: AsyncSession = Depends(get_db),
+):
+    rows, total = await list_instructions(
+        db, client_id=client_id, status=status, page=page, page_size=page_size,
+    )
+    return InstructionListResponse(
+        instructions=[instruction_to_entry(r) for r in rows],
+        total=total,
+    )
+
+
+@router.get("/instructions/{instruction_id}", response_model=InstructionEntry)
+async def get_instruction_endpoint(
+    instruction_id: str,
+    db: AsyncSession = Depends(get_db),
+):
+    inst = await get_instruction(db, instruction_id)
+    if inst is None:
+        raise HTTPException(status_code=404, detail="Instruction not found")
+    return instruction_to_entry(inst)
+
+
+@router.delete("/instructions/{instruction_id}", status_code=204)
+async def cancel_instruction_endpoint(
+    instruction_id: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """Cancel a pending instruction. Already-delivered instructions cannot be cancelled."""
+    ok = await cancel_instruction(db, instruction_id)
+    if not ok:
+        raise HTTPException(
+            status_code=409,
+            detail="Instruction not found or already delivered",
+        )
+    return None
 
 
 @router.post("/analyze", response_model=AnalyzeResponse)

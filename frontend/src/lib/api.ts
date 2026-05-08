@@ -138,6 +138,62 @@ export async function searchLogs(params: {
   return apiFetch("/api/search", { method: "POST", body: params });
 }
 
+export interface InstructionEntry {
+  id: string;
+  client_id: string;
+  session_id: string | null;
+  instruction: string;
+  status: "pending" | "delivered" | "cancelled";
+  priority: number;
+  created_at: string;
+  delivered_at: string | null;
+  delivered_request_id: string | null;
+  created_by: string | null;
+  note: string | null;
+}
+
+export interface InstructionListResponse {
+  instructions: InstructionEntry[];
+  total: number;
+}
+
+export async function listInstructions(params: {
+  client_id?: string;
+  status?: string;
+  page?: number;
+  page_size?: number;
+}): Promise<InstructionListResponse> {
+  const searchParams = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && v !== "") {
+      searchParams.set(k, String(v));
+    }
+  });
+  return apiFetch(`/api/instructions?${searchParams}`);
+}
+
+export async function createInstruction(payload: {
+  client_id: string;
+  instruction: string;
+  session_id?: string;
+  priority?: number;
+  note?: string;
+}): Promise<InstructionEntry> {
+  return apiFetch("/api/instructions", { method: "POST", body: payload });
+}
+
+export async function cancelInstruction(id: string): Promise<void> {
+  const apiKey =
+    typeof window !== "undefined" ? localStorage.getItem("clc_api_key") : null;
+  const res = await fetch(`${API_URL}/api/instructions/${id}`, {
+    method: "DELETE",
+    headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
+  });
+  if (!res.ok && res.status !== 204) {
+    throw new Error(`Failed to cancel: ${res.status}`);
+  }
+}
+
 export async function analyzeLogs(params: {
   client_id: string;
   query: string;

@@ -5,6 +5,7 @@ import { DashboardView } from "@/components/dashboard-view";
 import { LogsView } from "@/components/logs-view";
 import { SessionsView } from "@/components/sessions-view";
 import { SearchView } from "@/components/search-view";
+import { InstructionsView } from "@/components/instructions-view";
 import {
   Activity,
   FileText,
@@ -12,6 +13,7 @@ import {
   LayoutDashboard,
   Settings,
   Lock,
+  Send,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -67,6 +69,7 @@ const NAV_ITEMS = [
   { id: "logs", label: "Logs", icon: FileText },
   { id: "sessions", label: "Sessions", icon: Activity },
   { id: "search", label: "Search", icon: Search },
+  { id: "instructions", label: "Instructions", icon: Send },
 ] as const;
 
 type View = (typeof NAV_ITEMS)[number]["id"];
@@ -123,6 +126,7 @@ export default function Home() {
           {view === "logs" && <LogsView />}
           {view === "sessions" && <SessionsView />}
           {view === "search" && <SearchView />}
+          {view === "instructions" && <InstructionsView />}
         </main>
       </div>
     </AuthGate>
