@@ -110,18 +110,25 @@ def build_capabilities_summary(
         sp_value = latest_log.get("system_prompt") or ""
         sp = sp_value if isinstance(sp_value, str) else str(sp_value)
         summary["system_prompt_size"] = len(sp)
-        summary["mcp_servers"] = extract_mcp_servers(sp)
         summary["skills"] = extract_skills(sp)
         meta = latest_log.get("metadata") or {}
         tools = meta.get("available_tools") or []
         # Keep names + descriptions, also bucket by category
         cats: dict[str, list[str]] = defaultdict(list)
+        servers: dict[str, set[str]] = defaultdict(set)
         for t in tools:
             n = t.get("name", "") if isinstance(t, dict) else ""
             if n:
                 cats[categorize_tool(n)].append(n)
+                m = MCP_RE.match(n)
+                if m:
+                    servers[m.group(1)].add(m.group(2))
+        # Also pick up any MCP refs from the system_prompt (descriptions/text)
+        for s, t in extract_mcp_servers(sp).items():
+            servers[s].update(t)
         summary["available_tools"] = tools
         summary["available_tools_by_category"] = {k: sorted(v) for k, v in cats.items()}
+        summary["mcp_servers"] = {s: sorted(ts) for s, ts in servers.items()}
 
     # Aggregate usage across recent_logs
     tool_counter: Counter = Counter()
