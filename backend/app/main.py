@@ -56,6 +56,7 @@ CLIENT_PROFILES_DDL_STATEMENTS = [
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
     """,
+    "ALTER TABLE client_profiles ADD COLUMN IF NOT EXISTS device VARCHAR(128)",
 ]
 
 

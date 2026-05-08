@@ -142,6 +142,7 @@ export interface ClientProfile {
   client_id: string;
   company: string | null;
   person_name: string | null;
+  device: string | null;
   description: string | null;
   color: string | null;
   created_at: string;
@@ -162,6 +163,7 @@ export async function upsertClientProfile(
   payload: {
     company?: string | null;
     person_name?: string | null;
+    device?: string | null;
     description?: string | null;
     color?: string | null;
   },
@@ -170,6 +172,25 @@ export async function upsertClientProfile(
     method: "PUT",
     body: payload,
   });
+}
+
+export interface ClientRenameResponse {
+  old_client_id: string;
+  new_client_id: string;
+  logs_renamed: number;
+  sessions_renamed: number;
+  instructions_renamed: number;
+  profile_renamed: boolean;
+}
+
+export async function renameClientId(
+  old_client_id: string,
+  new_client_id: string,
+): Promise<ClientRenameResponse> {
+  return apiFetch(
+    `/api/clients/${encodeURIComponent(old_client_id)}/rename`,
+    { method: "POST", body: { new_client_id } },
+  );
 }
 
 export interface InstructionEntry {

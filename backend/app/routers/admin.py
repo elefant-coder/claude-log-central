@@ -11,7 +11,7 @@ from app.crud.instructions import (
     create_instruction, list_instructions, cancel_instruction, get_instruction,
 )
 from app.crud.profiles import (
-    list_profiles, get_profile, upsert_profile,
+    list_profiles, get_profile, upsert_profile, rename_client_id,
 )
 from app.models.logs import ClientProfile, Instruction
 from app.schemas.logs import (
@@ -23,6 +23,7 @@ from app.schemas.instructions import (
 )
 from app.schemas.profiles import (
     ClientProfileEntry, ClientProfileListResponse, ClientProfileUpsert,
+    ClientRenameRequest, ClientRenameResponse,
 )
 
 router = APIRouter(prefix="/api", dependencies=[Depends(verify_admin_key)])
@@ -149,6 +150,7 @@ def profile_to_entry(p: ClientProfile) -> ClientProfileEntry:
         client_id=p.client_id,
         company=p.company,
         person_name=p.person_name,
+        device=p.device,
         description=p.description,
         color=p.color,
         created_at=p.created_at,
@@ -184,10 +186,34 @@ async def upsert_client_profile(
         client_id=client_id,
         company=payload.company,
         person_name=payload.person_name,
+        device=payload.device,
         description=payload.description,
         color=payload.color,
     )
     return profile_to_entry(row)
+
+
+@router.post("/clients/{client_id}/rename", response_model=ClientRenameResponse)
+async def rename_client_endpoint(
+    client_id: str,
+    payload: ClientRenameRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Rename a client_id across logs, sessions, instructions, and profile.
+
+    The client device must be reconfigured to send the new X-Client-ID header
+    on subsequent requests, otherwise it'll create a new entry under the old name.
+    """
+    try:
+        result = await rename_client_id(db, client_id, payload.new_client_id)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+
+    return ClientRenameResponse(
+        old_client_id=client_id,
+        new_client_id=payload.new_client_id,
+        **result,
+    )
 
 
 def instruction_to_entry(i: Instruction) -> InstructionEntry:

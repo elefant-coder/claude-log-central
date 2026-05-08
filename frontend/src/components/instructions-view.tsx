@@ -47,6 +47,47 @@ import {
 } from "lucide-react";
 import { buildProfileMap, profileLines } from "@/lib/profile";
 
+/** Format a "delivery ETA" hint for a pending instruction based on the client's last activity. */
+function deliveryHint(lastActivity: string | null | undefined): {
+  text: string;
+  tone: "good" | "warn" | "stale" | "unknown";
+} {
+  if (!lastActivity) {
+    return {
+      text: "通信履歴がまだありません。クライアントが初めてClaude Codeを使った瞬間に届きます。",
+      tone: "unknown",
+    };
+  }
+  const last = new Date(lastActivity).getTime();
+  const diffMs = Date.now() - last;
+  const min = Math.floor(diffMs / 60_000);
+  const hr = Math.floor(min / 60);
+  const day = Math.floor(hr / 24);
+
+  if (min < 5) {
+    return {
+      text: `アクティブ中（最終通信: ${min < 1 ? "1分以内" : `${min}分前`}）— 次の発言で即届きます`,
+      tone: "good",
+    };
+  }
+  if (min < 60) {
+    return {
+      text: `${min}分前まで使用中。通常は数分〜十数分で届きます`,
+      tone: "good",
+    };
+  }
+  if (hr < 24) {
+    return {
+      text: `${hr}時間前に使用。再開時に届きます`,
+      tone: "warn",
+    };
+  }
+  return {
+    text: `${day}日前に使用。次にClaude Codeを起動した時に届きます`,
+    tone: "stale",
+  };
+}
+
 const STATUS_FILTERS = ["all", "pending", "delivered", "cancelled"] as const;
 type StatusFilter = (typeof STATUS_FILTERS)[number];
 
@@ -187,6 +228,11 @@ export function InstructionsView() {
   const selectedDisplay = selectedProfile
     ? profileLines(clientId, selectedProfile)
     : null;
+  const lastActivityByClient: Record<string, string | null> = {};
+  for (const c of dashboard?.clients ?? []) {
+    lastActivityByClient[c.client_id] = c.last_activity;
+  }
+  const selectedHint = clientId ? deliveryHint(lastActivityByClient[clientId]) : null;
 
   return (
     <div className="space-y-6">
@@ -244,13 +290,38 @@ export function InstructionsView() {
                   onChange={(e) => setClientId(e.target.value)}
                   required
                 />
-                {selectedDisplay && selectedDisplay.subtitle ? (
-                  <p className="text-xs text-muted-foreground">
-                    送信先: <strong>{selectedDisplay.title}</strong>
-                    <span className="ml-2 font-mono">
-                      ({selectedDisplay.subtitle})
-                    </span>
-                  </p>
+                {clientId.trim() && selectedHint ? (
+                  <div className="rounded-md bg-muted/40 px-3 py-2 space-y-1">
+                    <div className="text-xs">
+                      送信先:{" "}
+                      <strong>
+                        {selectedDisplay?.title ?? clientId}
+                      </strong>
+                      {selectedDisplay?.device ? (
+                        <span className="ml-2 text-muted-foreground">
+                          💻 {selectedDisplay.device}
+                        </span>
+                      ) : null}
+                      {selectedDisplay?.subtitle ? (
+                        <span className="ml-2 text-muted-foreground font-mono">
+                          ({selectedDisplay.subtitle})
+                        </span>
+                      ) : null}
+                    </div>
+                    <div
+                      className={`text-xs ${
+                        selectedHint.tone === "good"
+                          ? "text-green-500"
+                          : selectedHint.tone === "warn"
+                            ? "text-amber-500"
+                            : selectedHint.tone === "stale"
+                              ? "text-muted-foreground"
+                              : "text-muted-foreground"
+                      }`}
+                    >
+                      ⏱ {selectedHint.text}
+                    </div>
+                  </div>
                 ) : null}
               </div>
               <div className="space-y-1">
@@ -410,13 +481,25 @@ export function InstructionsView() {
                 {instructions.map((inst) => {
                   const profile = profileMap[inst.client_id];
                   const lines = profileLines(inst.client_id, profile);
+                  const hint =
+                    inst.status === "pending"
+                      ? deliveryHint(lastActivityByClient[inst.client_id])
+                      : null;
                   return (
                     <TableRow key={inst.id}>
                       <TableCell>
                         <StatusBadge status={inst.status} />
-                        {inst.status === "pending" ? (
-                          <div className="text-[10px] text-muted-foreground mt-1">
-                            次回通信時に届きます
+                        {hint ? (
+                          <div
+                            className={`text-[10px] mt-1 max-w-[180px] ${
+                              hint.tone === "good"
+                                ? "text-green-500"
+                                : hint.tone === "warn"
+                                  ? "text-amber-500"
+                                  : "text-muted-foreground"
+                            }`}
+                          >
+                            {hint.text}
                           </div>
                         ) : null}
                       </TableCell>
@@ -424,14 +507,19 @@ export function InstructionsView() {
                         <div className="flex items-center gap-2">
                           {profile?.color ? (
                             <span
-                              className="inline-block w-1.5 h-6 rounded-full shrink-0"
+                              className="inline-block w-1.5 h-8 rounded-full shrink-0"
                               style={{ backgroundColor: profile.color }}
                             />
                           ) : null}
                           <div className="min-w-0">
                             <div className="truncate">{lines.title}</div>
+                            {lines.device ? (
+                              <div className="text-[10px] text-muted-foreground truncate">
+                                💻 {lines.device}
+                              </div>
+                            ) : null}
                             {lines.subtitle ? (
-                              <div className="text-[10px] text-muted-foreground font-mono truncate">
+                              <div className="text-[10px] text-muted-foreground/70 font-mono truncate">
                                 {lines.subtitle}
                               </div>
                             ) : null}

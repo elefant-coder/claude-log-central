@@ -172,21 +172,20 @@ export function DashboardView() {
                         <div className="flex items-center gap-2">
                           {profile?.color ? (
                             <span
-                              className="inline-block w-2 h-8 rounded-full"
+                              className="inline-block w-2 h-10 rounded-full shrink-0"
                               style={{ backgroundColor: profile.color }}
                             />
                           ) : null}
                           <div className="min-w-0">
                             <div className="truncate">{lines.title}</div>
-                            {lines.subtitle ? (
-                              <div className="text-xs text-muted-foreground font-mono truncate">
-                                {lines.subtitle}
+                            {lines.device ? (
+                              <div className="text-xs text-muted-foreground truncate">
+                                💻 {lines.device}
                               </div>
-                            ) : (
-                              <div className="text-xs text-muted-foreground">
-                                未設定
-                              </div>
-                            )}
+                            ) : null}
+                            <div className="text-xs text-muted-foreground/70 font-mono truncate">
+                              {lines.subtitle || "未設定"}
+                            </div>
                           </div>
                         </div>
                       </TableCell>

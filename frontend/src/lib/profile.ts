@@ -10,7 +10,7 @@ export function buildProfileMap(profiles: ClientProfile[] | undefined): ProfileM
   return map;
 }
 
-/** Human-friendly display name. Prefers "Company - Person" then falls back to client_id. */
+/** Human-friendly display name. Prefers "Company / Person" then falls back to client_id. */
 export function displayName(
   clientId: string,
   profile: ClientProfile | undefined,
@@ -21,12 +21,18 @@ export function displayName(
   return parts.join(" / ");
 }
 
-/** Two-line display: title + secondary id, used in tables. */
+/** Two-line display: title + (device) + id, used in tables. */
 export function profileLines(
   clientId: string,
   profile: ClientProfile | undefined,
-): { title: string; subtitle: string | null } {
+): { title: string; device: string | null; subtitle: string } {
   const name = displayName(clientId, profile);
-  if (name === clientId) return { title: clientId, subtitle: null };
-  return { title: name, subtitle: clientId };
+  if (name === clientId) {
+    return { title: clientId, device: profile?.device ?? null, subtitle: "" };
+  }
+  return {
+    title: name,
+    device: profile?.device ?? null,
+    subtitle: clientId,
+  };
 }
