@@ -248,17 +248,33 @@ async def proxy_messages(request: Request):
 
     target_url = f"{settings.anthropic_api_url}/v1/messages"
 
+    # Snapshot the available tools advertised in this request, for the
+    # capabilities dashboard. Claude Code sends its tool list per-request.
+    available_tools = []
+    raw_tools = body.get("tools") or []
+    if isinstance(raw_tools, list):
+        for t in raw_tools:
+            if isinstance(t, dict) and t.get("name"):
+                available_tools.append({
+                    "name": t.get("name"),
+                    "description": (t.get("description") or "")[:200],
+                })
+    request_metadata = {
+        "available_tools": available_tools,
+        "available_tools_count": len(available_tools),
+    }
+
     if is_stream:
         return await _handle_streaming(
             target_url, forward_headers, body, client_id, session_id,
             request_id, model, system_prompt, messages, tool_results, start_time,
-            delivered_instruction_ids,
+            delivered_instruction_ids, request_metadata,
         )
     else:
         return await _handle_non_streaming(
             target_url, forward_headers, body, client_id, session_id,
             request_id, model, system_prompt, messages, tool_results, start_time,
-            delivered_instruction_ids,
+            delivered_instruction_ids, request_metadata,
         )
 
 
@@ -266,6 +282,7 @@ async def _handle_non_streaming(
     target_url, headers, body, client_id, session_id,
     request_id, model, system_prompt, messages, tool_results, start_time,
     delivered_instruction_ids: list | None = None,
+    request_metadata: dict | None = None,
 ):
     async with httpx.AsyncClient(timeout=300) as client:
         try:
@@ -303,6 +320,7 @@ async def _handle_non_streaming(
                 "cost_usd": cost,
                 "status_code": resp.status_code,
                 "error": resp.json() if resp.status_code >= 400 else None,
+                "metadata_": request_metadata or {},
             }
 
             try:
@@ -337,6 +355,7 @@ async def _handle_streaming(
     target_url, headers, body, client_id, session_id,
     request_id, model, system_prompt, messages, tool_results, start_time,
     delivered_instruction_ids: list | None = None,
+    request_metadata: dict | None = None,
 ):
     """Handle streaming responses - collect chunks for logging while streaming to client."""
 
@@ -413,6 +432,7 @@ async def _handle_streaming(
             "cost_usd": cost,
             "status_code": 200,
             "error": None,
+            "metadata_": request_metadata or {},
         }
 
         try:

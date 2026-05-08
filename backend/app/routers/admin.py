@@ -27,6 +27,8 @@ from app.schemas.profiles import (
     TelegramTestRequest, TelegramTestResponse, TelegramStatusResponse,
 )
 from app.services import telegram as tg
+from app.services.capabilities import build_capabilities_summary
+from app.schemas.capabilities import CapabilitiesResponse
 
 router = APIRouter(prefix="/api", dependencies=[Depends(verify_admin_key)])
 
@@ -216,6 +218,54 @@ async def upsert_client_profile(
         telegram_chat_id=payload.telegram_chat_id,
     )
     return profile_to_entry(row)
+
+
+@router.get("/clients/{client_id}/capabilities", response_model=CapabilitiesResponse)
+async def get_client_capabilities(
+    client_id: str,
+    sample: int = Query(default=50, ge=1, le=500),
+    db: AsyncSession = Depends(get_db),
+):
+    """Snapshot of what this client's Claude Code can do.
+
+    Pulls the most recent successful Opus/Sonnet request to extract the
+    advertised tool list, MCP servers, skills, and system-prompt-derived
+    capabilities. Aggregates `sample` recent requests for usage stats.
+    """
+    logs, _ = await get_logs(db, client_id=client_id, page=1, page_size=sample)
+
+    # latest "real" turn = most recent log with substantial system_prompt
+    latest = next(
+        (
+            l for l in logs
+            if (l.system_prompt or "")
+            and len(l.system_prompt or "") > 1000
+            and (l.model or "").lower().find("haiku") == -1
+        ),
+        None,
+    )
+
+    def _to_dict(l):
+        return {
+            "model": l.model,
+            "system_prompt": l.system_prompt,
+            "metadata": l.metadata_ or {},
+            "tool_calls": l.tool_calls or [],
+            "timestamp": l.timestamp,
+        }
+
+    summary = build_capabilities_summary(
+        latest_log=_to_dict(latest) if latest else None,
+        recent_logs=[_to_dict(l) for l in logs],
+    )
+
+    last_seen = logs[0].timestamp.isoformat() if logs else None
+    return CapabilitiesResponse(
+        client_id=client_id,
+        sample_size=len(logs),
+        last_seen=last_seen,
+        **summary,
+    )
 
 
 @router.post("/clients/{client_id}/rename", response_model=ClientRenameResponse)

@@ -176,6 +176,29 @@ export async function upsertClientProfile(
   });
 }
 
+export interface ClientCapabilities {
+  client_id: string;
+  sample_size: int_;
+  system_prompt_size: int_;
+  available_tools: { name: string; description: string }[];
+  available_tools_by_category: Record<string, string[]>;
+  mcp_servers: Record<string, string[]>;
+  skills: { name: string; description: string }[];
+  tool_usage: { name: string; count: number; category: string }[];
+  models_used: { model: string; count: number }[];
+  last_seen: string | null;
+}
+type int_ = number;
+
+export async function getClientCapabilities(
+  client_id: string,
+  sample = 100,
+): Promise<ClientCapabilities> {
+  return apiFetch(
+    `/api/clients/${encodeURIComponent(client_id)}/capabilities?sample=${sample}`,
+  );
+}
+
 export async function getTelegramStatus(): Promise<{
   configured: boolean;
   bot_username: string | null;

@@ -31,9 +31,13 @@ import {
   AlertTriangle,
   Users,
   Pencil,
+  Cpu,
+  Plus,
 } from "lucide-react";
 import { buildProfileMap, profileLines } from "@/lib/profile";
 import { ClientProfileDialog } from "@/components/client-profile-dialog";
+import { CapabilitiesDialog } from "@/components/capabilities-dialog";
+import { OnboardingDialog } from "@/components/onboarding-dialog";
 
 function StatCard({
   title,
@@ -67,6 +71,8 @@ export function DashboardView() {
     clientId: string;
     profile: ClientProfile | null;
   } | null>(null);
+  const [capabilitiesFor, setCapabilitiesFor] = useState<string | null>(null);
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["dashboard"],
@@ -99,11 +105,20 @@ export function DashboardView() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight">ダッシュボード</h2>
-        <p className="text-muted-foreground">
-          全Claude Codeクライアントの活動サマリー
-        </p>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">ダッシュボード</h2>
+          <p className="text-muted-foreground">
+            全Claude Codeクライアントの活動サマリー
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          onClick={() => setOnboardingOpen(true)}
+          className="gap-1.5"
+        >
+          <Plus className="h-4 w-4" /> クライアントを追加
+        </Button>
       </div>
 
       {/* Stats cards */}
@@ -215,19 +230,29 @@ export function DashboardView() {
                           : "-"}
                       </TableCell>
                       <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() =>
-                            setEditing({
-                              clientId: client.client_id,
-                              profile: profile ?? null,
-                            })
-                          }
-                          title="このクライアントの情報を編集"
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
+                        <div className="flex gap-0.5">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setCapabilitiesFor(client.client_id)}
+                            title="ケイパビリティを表示"
+                          >
+                            <Cpu className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() =>
+                              setEditing({
+                                clientId: client.client_id,
+                                profile: profile ?? null,
+                              })
+                            }
+                            title="クライアント情報を編集"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
@@ -243,6 +268,17 @@ export function DashboardView() {
         clientId={editing?.clientId ?? ""}
         profile={editing?.profile ?? null}
         onClose={() => setEditing(null)}
+      />
+
+      <CapabilitiesDialog
+        open={!!capabilitiesFor}
+        clientId={capabilitiesFor ?? ""}
+        onClose={() => setCapabilitiesFor(null)}
+      />
+
+      <OnboardingDialog
+        open={onboardingOpen}
+        onClose={() => setOnboardingOpen(false)}
       />
     </div>
   );
