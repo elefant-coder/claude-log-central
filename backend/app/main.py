@@ -44,6 +44,20 @@ INSTRUCTIONS_DDL_STATEMENTS = [
     "CREATE INDEX IF NOT EXISTS idx_instructions_created_at ON instructions(created_at DESC)",
 ]
 
+CLIENT_PROFILES_DDL_STATEMENTS = [
+    """
+    CREATE TABLE IF NOT EXISTS client_profiles (
+        client_id VARCHAR(64) PRIMARY KEY,
+        company VARCHAR(128),
+        person_name VARCHAR(128),
+        description TEXT,
+        color VARCHAR(16),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+    """,
+]
+
 
 @app.on_event("startup")
 async def on_startup():
@@ -52,7 +66,9 @@ async def on_startup():
         async with engine.begin() as conn:
             for stmt in INSTRUCTIONS_DDL_STATEMENTS:
                 await conn.execute(text(stmt))
-        logger.info("instructions table ensured")
+            for stmt in CLIENT_PROFILES_DDL_STATEMENTS:
+                await conn.execute(text(stmt))
+        logger.info("schema ensured")
     except Exception as e:
         logger.error("startup migration failed", error=str(e))
 

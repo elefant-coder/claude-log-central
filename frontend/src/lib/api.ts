@@ -138,6 +138,40 @@ export async function searchLogs(params: {
   return apiFetch("/api/search", { method: "POST", body: params });
 }
 
+export interface ClientProfile {
+  client_id: string;
+  company: string | null;
+  person_name: string | null;
+  description: string | null;
+  color: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ClientProfileListResponse {
+  profiles: ClientProfile[];
+  total: number;
+}
+
+export async function listClientProfiles(): Promise<ClientProfileListResponse> {
+  return apiFetch("/api/client-profiles");
+}
+
+export async function upsertClientProfile(
+  client_id: string,
+  payload: {
+    company?: string | null;
+    person_name?: string | null;
+    description?: string | null;
+    color?: string | null;
+  },
+): Promise<ClientProfile> {
+  return apiFetch(`/api/client-profiles/${encodeURIComponent(client_id)}`, {
+    method: "PUT",
+    body: payload,
+  });
+}
+
 export interface InstructionEntry {
   id: string;
   client_id: string;

@@ -1,7 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getDashboard, type ClientStats } from "@/lib/api";
+import {
+  getDashboard,
+  listClientProfiles,
+  type ClientStats,
+  type ClientProfile,
+} from "@/lib/api";
 import {
   Card,
   CardContent,
@@ -10,6 +16,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -18,7 +25,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Activity, DollarSign, AlertTriangle, Users } from "lucide-react";
+import {
+  Activity,
+  DollarSign,
+  AlertTriangle,
+  Users,
+  Pencil,
+} from "lucide-react";
+import { buildProfileMap, profileLines } from "@/lib/profile";
+import { ClientProfileDialog } from "@/components/client-profile-dialog";
 
 function StatCard({
   title,
@@ -48,10 +63,21 @@ function StatCard({
 }
 
 export function DashboardView() {
+  const [editing, setEditing] = useState<{
+    clientId: string;
+    profile: ClientProfile | null;
+  } | null>(null);
+
   const { data, isLoading, error } = useQuery({
     queryKey: ["dashboard"],
     queryFn: getDashboard,
   });
+
+  const { data: profilesData } = useQuery({
+    queryKey: ["client-profiles"],
+    queryFn: listClientProfiles,
+  });
+  const profileMap = buildProfileMap(profilesData?.profiles);
 
   if (isLoading) {
     return (
@@ -114,7 +140,7 @@ export function DashboardView() {
         <CardHeader>
           <CardTitle>クライアント一覧</CardTitle>
           <CardDescription>
-            クライアント別の利用状況
+            クライアント別の利用状況。各行の右端にある編集ボタンから「会社名」「担当者名」「メモ」を設定できます。
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -126,51 +152,99 @@ export function DashboardView() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>クライアント</TableHead>
+                  <TableHead className="w-[280px]">クライアント</TableHead>
                   <TableHead>セッション数</TableHead>
                   <TableHead>リクエスト数</TableHead>
                   <TableHead>トークン（入力/出力）</TableHead>
                   <TableHead>コスト</TableHead>
                   <TableHead>エラー</TableHead>
                   <TableHead>最終アクティビティ</TableHead>
+                  <TableHead className="w-[60px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data.clients.map((client: ClientStats) => (
-                  <TableRow key={client.client_id}>
-                    <TableCell className="font-medium">
-                      <Badge variant="outline">{client.client_id}</Badge>
-                    </TableCell>
-                    <TableCell>{client.total_sessions}</TableCell>
-                    <TableCell>
-                      {client.total_requests.toLocaleString()}
-                    </TableCell>
-                    <TableCell className="text-xs">
-                      {(client.total_tokens_input / 1000).toFixed(1)}K /{" "}
-                      {(client.total_tokens_output / 1000).toFixed(1)}K
-                    </TableCell>
-                    <TableCell>${client.total_cost_usd.toFixed(2)}</TableCell>
-                    <TableCell>
-                      {client.error_count > 0 ? (
-                        <Badge variant="destructive">
-                          {client.error_count}
-                        </Badge>
-                      ) : (
-                        <span className="text-muted-foreground">0</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {client.last_activity
-                        ? new Date(client.last_activity).toLocaleString("ja-JP")
-                        : "-"}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {data.clients.map((client: ClientStats) => {
+                  const profile = profileMap[client.client_id];
+                  const lines = profileLines(client.client_id, profile);
+                  return (
+                    <TableRow key={client.client_id}>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2">
+                          {profile?.color ? (
+                            <span
+                              className="inline-block w-2 h-8 rounded-full"
+                              style={{ backgroundColor: profile.color }}
+                            />
+                          ) : null}
+                          <div className="min-w-0">
+                            <div className="truncate">{lines.title}</div>
+                            {lines.subtitle ? (
+                              <div className="text-xs text-muted-foreground font-mono truncate">
+                                {lines.subtitle}
+                              </div>
+                            ) : (
+                              <div className="text-xs text-muted-foreground">
+                                未設定
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>{client.total_sessions}</TableCell>
+                      <TableCell>
+                        {client.total_requests.toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-xs">
+                        {(client.total_tokens_input / 1000).toFixed(1)}K /{" "}
+                        {(client.total_tokens_output / 1000).toFixed(1)}K
+                      </TableCell>
+                      <TableCell>${client.total_cost_usd.toFixed(2)}</TableCell>
+                      <TableCell>
+                        {client.error_count > 0 ? (
+                          <Badge variant="destructive">
+                            {client.error_count}
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground">0</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {client.last_activity
+                          ? new Date(client.last_activity).toLocaleString(
+                              "ja-JP",
+                            )
+                          : "-"}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() =>
+                            setEditing({
+                              clientId: client.client_id,
+                              profile: profile ?? null,
+                            })
+                          }
+                          title="このクライアントの情報を編集"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           )}
         </CardContent>
       </Card>
+
+      <ClientProfileDialog
+        open={!!editing}
+        clientId={editing?.clientId ?? ""}
+        profile={editing?.profile ?? null}
+        onClose={() => setEditing(null)}
+      />
     </div>
   );
 }

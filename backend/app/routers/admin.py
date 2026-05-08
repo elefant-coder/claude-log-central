@@ -10,13 +10,19 @@ from app.crud.logs import get_logs, search_logs, get_sessions, get_dashboard_sta
 from app.crud.instructions import (
     create_instruction, list_instructions, cancel_instruction, get_instruction,
 )
-from app.models.logs import Instruction
+from app.crud.profiles import (
+    list_profiles, get_profile, upsert_profile,
+)
+from app.models.logs import ClientProfile, Instruction
 from app.schemas.logs import (
     LogListResponse, LogEntry, SessionListResponse, SessionEntry,
     DashboardStats, ClientStats, SearchRequest, AnalyzeRequest, AnalyzeResponse,
 )
 from app.schemas.instructions import (
     InstructionCreate, InstructionEntry, InstructionListResponse,
+)
+from app.schemas.profiles import (
+    ClientProfileEntry, ClientProfileListResponse, ClientProfileUpsert,
 )
 
 router = APIRouter(prefix="/api", dependencies=[Depends(verify_admin_key)])
@@ -136,6 +142,52 @@ async def search(req: SearchRequest, db: AsyncSession = Depends(get_db)):
         logs=[log_to_entry(l) for l in logs],
         total=total, page=req.page, page_size=req.page_size,
     )
+
+
+def profile_to_entry(p: ClientProfile) -> ClientProfileEntry:
+    return ClientProfileEntry(
+        client_id=p.client_id,
+        company=p.company,
+        person_name=p.person_name,
+        description=p.description,
+        color=p.color,
+        created_at=p.created_at,
+        updated_at=p.updated_at,
+    )
+
+
+@router.get("/client-profiles", response_model=ClientProfileListResponse)
+async def list_client_profiles(db: AsyncSession = Depends(get_db)):
+    rows = await list_profiles(db)
+    return ClientProfileListResponse(
+        profiles=[profile_to_entry(r) for r in rows],
+        total=len(rows),
+    )
+
+
+@router.get("/client-profiles/{client_id}", response_model=ClientProfileEntry)
+async def get_client_profile(client_id: str, db: AsyncSession = Depends(get_db)):
+    row = await get_profile(db, client_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Client profile not found")
+    return profile_to_entry(row)
+
+
+@router.put("/client-profiles/{client_id}", response_model=ClientProfileEntry)
+async def upsert_client_profile(
+    client_id: str,
+    payload: ClientProfileUpsert,
+    db: AsyncSession = Depends(get_db),
+):
+    row = await upsert_profile(
+        db,
+        client_id=client_id,
+        company=payload.company,
+        person_name=payload.person_name,
+        description=payload.description,
+        color=payload.color,
+    )
+    return profile_to_entry(row)
 
 
 def instruction_to_entry(i: Instruction) -> InstructionEntry:
