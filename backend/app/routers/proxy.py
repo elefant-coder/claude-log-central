@@ -201,11 +201,13 @@ async def proxy_messages(request: Request):
         elif lower == "x-api-key":
             forward_headers[key] = value
         elif lower == "authorization":
-            # Convert Bearer token to x-api-key for Anthropic
-            if value.startswith("Bearer "):
-                forward_headers["x-api-key"] = value.removeprefix("Bearer ")
-            else:
-                forward_headers["authorization"] = value
+            # Forward Authorization header as-is. Claude Code Pro/Max users
+            # authenticate via OAuth (Authorization: Bearer <oauth_token>),
+            # which Anthropic accepts directly. API key users send
+            # x-api-key, which is handled by the branch above. Previously we
+            # converted Bearer→x-api-key unconditionally, which broke OAuth
+            # users (every request 401).
+            forward_headers["authorization"] = value
 
     # Extract tool results from request
     tool_results = extract_tool_results(messages)
