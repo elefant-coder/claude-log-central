@@ -56,7 +56,7 @@ export function DashboardView() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-pulse text-muted-foreground">Loading...</div>
+        <div className="animate-pulse text-muted-foreground">読み込み中...</div>
       </div>
     );
   }
@@ -64,7 +64,7 @@ export function DashboardView() {
   if (error) {
     return (
       <div className="flex items-center justify-center h-64 text-destructive">
-        Failed to load dashboard. Check your API key.
+        ダッシュボードの読み込みに失敗しました。APIキーを確認してください。
       </div>
     );
   }
@@ -74,35 +74,35 @@ export function DashboardView() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold tracking-tight">Dashboard</h2>
+        <h2 className="text-2xl font-bold tracking-tight">ダッシュボード</h2>
         <p className="text-muted-foreground">
-          Overview of all Claude Code client activity
+          全Claude Codeクライアントの活動サマリー
         </p>
       </div>
 
       {/* Stats cards */}
       <div className="grid gap-4 md:grid-cols-4">
         <StatCard
-          title="Total Clients"
+          title="クライアント数"
           value={String(data.clients.length)}
           icon={Users}
         />
         <StatCard
-          title="Total Requests"
+          title="リクエスト総数"
           value={data.total_requests.toLocaleString()}
           icon={Activity}
         />
         <StatCard
-          title="Total Cost"
+          title="累計コスト"
           value={`$${data.total_cost_usd.toFixed(2)}`}
           icon={DollarSign}
         />
         <StatCard
-          title="Total Errors"
+          title="エラー数"
           value={String(data.total_errors)}
           description={
             data.total_requests > 0
-              ? `${((data.total_errors / data.total_requests) * 100).toFixed(1)}% error rate`
+              ? `エラー率 ${((data.total_errors / data.total_requests) * 100).toFixed(1)}%`
               : undefined
           }
           icon={AlertTriangle}
@@ -112,28 +112,27 @@ export function DashboardView() {
       {/* Client table */}
       <Card>
         <CardHeader>
-          <CardTitle>Clients</CardTitle>
+          <CardTitle>クライアント一覧</CardTitle>
           <CardDescription>
-            Per-client usage statistics and activity
+            クライアント別の利用状況
           </CardDescription>
         </CardHeader>
         <CardContent>
           {data.clients.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              No client data yet. Connect a Claude Code instance to start
-              logging.
+              まだクライアントデータがありません。Claude Code を接続するとログが流れ始めます。
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Client</TableHead>
-                  <TableHead>Sessions</TableHead>
-                  <TableHead>Requests</TableHead>
-                  <TableHead>Tokens (In/Out)</TableHead>
-                  <TableHead>Cost</TableHead>
-                  <TableHead>Errors</TableHead>
-                  <TableHead>Last Activity</TableHead>
+                  <TableHead>クライアント</TableHead>
+                  <TableHead>セッション数</TableHead>
+                  <TableHead>リクエスト数</TableHead>
+                  <TableHead>トークン（入力/出力）</TableHead>
+                  <TableHead>コスト</TableHead>
+                  <TableHead>エラー</TableHead>
+                  <TableHead>最終アクティビティ</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

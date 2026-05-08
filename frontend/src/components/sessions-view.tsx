@@ -34,15 +34,15 @@ export function SessionsView() {
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-2xl font-bold tracking-tight">Sessions</h2>
+        <h2 className="text-2xl font-bold tracking-tight">セッション</h2>
         <p className="text-muted-foreground">
-          Claude Code sessions grouped by client
+          クライアント別のClaude Codeセッション一覧
         </p>
       </div>
 
       <div className="flex gap-2">
         <Input
-          placeholder="Filter by client ID..."
+          placeholder="クライアントIDで絞り込み..."
           value={clientFilter}
           onChange={(e) => {
             setClientFilter(e.target.value);
@@ -56,23 +56,23 @@ export function SessionsView() {
         <CardContent className="p-0">
           {isLoading ? (
             <div className="p-8 text-center text-muted-foreground">
-              Loading...
+              読み込み中...
             </div>
           ) : !data || data.sessions.length === 0 ? (
             <div className="p-8 text-center text-muted-foreground">
-              No sessions found
+              セッションが見つかりません
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Client</TableHead>
-                  <TableHead>Session ID</TableHead>
-                  <TableHead>Started</TableHead>
-                  <TableHead>Last Activity</TableHead>
-                  <TableHead>Requests</TableHead>
-                  <TableHead>Tokens (In/Out)</TableHead>
-                  <TableHead>Cost</TableHead>
+                  <TableHead>クライアント</TableHead>
+                  <TableHead>セッションID</TableHead>
+                  <TableHead>開始</TableHead>
+                  <TableHead>最終アクティビティ</TableHead>
+                  <TableHead>リクエスト</TableHead>
+                  <TableHead>トークン（入力/出力）</TableHead>
+                  <TableHead>コスト</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -110,7 +110,7 @@ export function SessionsView() {
         {data && data.total > 50 && (
           <div className="flex items-center justify-between px-4 py-3 border-t">
             <span className="text-sm text-muted-foreground">
-              Page {page} ({data.total} total)
+              {page} ページ目（全 {data.total} 件）
             </span>
             <div className="flex gap-2">
               <Button

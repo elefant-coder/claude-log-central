@@ -57,9 +57,9 @@ export function SearchView() {
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-2xl font-bold tracking-tight">Search & Analyze</h2>
+        <h2 className="text-2xl font-bold tracking-tight">検索 & 分析</h2>
         <p className="text-muted-foreground">
-          Search logs or analyze issues across clients
+          ログ全文検索やクライアント単位の問題分析
         </p>
       </div>
 
@@ -67,11 +67,11 @@ export function SearchView() {
         <TabsList>
           <TabsTrigger value="search">
             <Search className="w-4 h-4 mr-2" />
-            Search
+            検索
           </TabsTrigger>
           <TabsTrigger value="analyze">
             <Sparkles className="w-4 h-4 mr-2" />
-            Analyze
+            分析
           </TabsTrigger>
         </TabsList>
 
@@ -79,8 +79,8 @@ export function SearchView() {
           <Input
             placeholder={
               activeTab === "search"
-                ? "Search in prompts, responses, tools..."
-                : "Describe the issue to analyze..."
+                ? "プロンプト・レスポンス・ツール内を検索..."
+                : "分析したい問題を入力..."
             }
             value={searchQuery}
             onChange={(e) => {
@@ -90,7 +90,7 @@ export function SearchView() {
             className="flex-1"
           />
           <Input
-            placeholder="Client ID (optional for search)"
+            placeholder="クライアントID（検索は任意）"
             value={clientId}
             onChange={(e) => {
               setClientId(e.target.value);
@@ -99,33 +99,33 @@ export function SearchView() {
             className="max-w-[200px]"
           />
           <Button type="submit">
-            {activeTab === "search" ? "Search" : "Analyze"}
+            {activeTab === "search" ? "検索" : "分析"}
           </Button>
         </form>
 
         <TabsContent value="search" className="mt-4">
           {searchResult.isLoading && (
             <div className="p-8 text-center text-muted-foreground">
-              Searching...
+              検索中...
             </div>
           )}
           {searchResult.data && (
             <Card>
               <CardHeader>
                 <CardTitle className="text-sm">
-                  {searchResult.data.total} results found
+                  {searchResult.data.total} 件ヒット
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-0">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Time</TableHead>
-                      <TableHead>Client</TableHead>
-                      <TableHead>Model</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Latency</TableHead>
-                      <TableHead>Tools</TableHead>
+                      <TableHead>日時</TableHead>
+                      <TableHead>クライアント</TableHead>
+                      <TableHead>モデル</TableHead>
+                      <TableHead>ステータス</TableHead>
+                      <TableHead>レイテンシ</TableHead>
+                      <TableHead>ツール</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -156,7 +156,7 @@ export function SearchView() {
                         </TableCell>
                         <TableCell className="text-xs">
                           {log.tool_calls.length > 0
-                            ? `${log.tool_calls.length} calls`
+                            ? `${log.tool_calls.length} 件`
                             : "-"}
                         </TableCell>
                       </TableRow>
@@ -171,26 +171,26 @@ export function SearchView() {
         <TabsContent value="analyze" className="mt-4">
           {!clientId && submitted && (
             <div className="p-8 text-center text-muted-foreground">
-              Client ID is required for analysis
+              分析にはクライアントIDが必要です
             </div>
           )}
           {analyzeResult.isLoading && (
             <div className="p-8 text-center text-muted-foreground">
-              Analyzing logs...
+              ログを分析中...
             </div>
           )}
           {analyzeResult.data && (
             <div className="space-y-4">
               <Card>
                 <CardHeader>
-                  <CardTitle>Analysis Summary</CardTitle>
+                  <CardTitle>分析サマリー</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <p>{analyzeResult.data.summary}</p>
                   {analyzeResult.data.suggested_fix && (
                     <div className="bg-green-500/10 border border-green-500/20 p-4 rounded-md">
                       <h4 className="font-medium text-green-500 mb-1">
-                        Suggested Fix
+                        推奨される対処
                       </h4>
                       <p className="text-sm">
                         {analyzeResult.data.suggested_fix}
@@ -204,7 +204,7 @@ export function SearchView() {
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-sm">
-                      Related Logs ({analyzeResult.data.matching_logs.length})
+                      関連ログ（{analyzeResult.data.matching_logs.length}件）
                     </CardTitle>
                   </CardHeader>
                   <CardContent>

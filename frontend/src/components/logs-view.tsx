@@ -42,19 +42,19 @@ function LogDetailDialog({
       <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            Log Detail - {log.request_id.slice(0, 8)}...
+            ログ詳細 - {log.request_id.slice(0, 8)}...
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4 text-sm">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <span className="font-medium">Client:</span> {log.client_id}
+              <span className="font-medium">クライアント:</span> {log.client_id}
             </div>
             <div>
-              <span className="font-medium">Model:</span> {log.model || "N/A"}
+              <span className="font-medium">モデル:</span> {log.model || "N/A"}
             </div>
             <div>
-              <span className="font-medium">Status:</span>{" "}
+              <span className="font-medium">ステータス:</span>{" "}
               <Badge
                 variant={log.status_code >= 400 ? "destructive" : "secondary"}
               >
@@ -62,22 +62,22 @@ function LogDetailDialog({
               </Badge>
             </div>
             <div>
-              <span className="font-medium">Latency:</span>{" "}
+              <span className="font-medium">レイテンシ:</span>{" "}
               {log.latency_ms}ms
             </div>
             <div>
-              <span className="font-medium">Tokens:</span>{" "}
-              {log.tokens_input} in / {log.tokens_output} out
+              <span className="font-medium">トークン:</span>{" "}
+              入力 {log.tokens_input} / 出力 {log.tokens_output}
             </div>
             <div>
-              <span className="font-medium">Cost:</span> $
+              <span className="font-medium">コスト:</span> $
               {log.cost_usd.toFixed(4)}
             </div>
           </div>
 
           {log.system_prompt && (
             <div>
-              <h4 className="font-medium mb-1">System Prompt</h4>
+              <h4 className="font-medium mb-1">システムプロンプト</h4>
               <pre className="bg-muted p-3 rounded-md overflow-x-auto text-xs max-h-40 overflow-y-auto">
                 {log.system_prompt}
               </pre>
@@ -85,14 +85,14 @@ function LogDetailDialog({
           )}
 
           <div>
-            <h4 className="font-medium mb-1">Prompt (Messages)</h4>
+            <h4 className="font-medium mb-1">プロンプト（メッセージ履歴）</h4>
             <pre className="bg-muted p-3 rounded-md overflow-x-auto text-xs max-h-60 overflow-y-auto">
               {JSON.stringify(log.prompt, null, 2)}
             </pre>
           </div>
 
           <div>
-            <h4 className="font-medium mb-1">Response</h4>
+            <h4 className="font-medium mb-1">レスポンス</h4>
             <pre className="bg-muted p-3 rounded-md overflow-x-auto text-xs max-h-60 overflow-y-auto">
               {JSON.stringify(log.response, null, 2)}
             </pre>
@@ -101,7 +101,7 @@ function LogDetailDialog({
           {log.tool_calls.length > 0 && (
             <div>
               <h4 className="font-medium mb-1">
-                Tool Calls ({log.tool_calls.length})
+                ツール呼び出し（{log.tool_calls.length}件）
               </h4>
               <pre className="bg-muted p-3 rounded-md overflow-x-auto text-xs max-h-40 overflow-y-auto">
                 {JSON.stringify(log.tool_calls, null, 2)}
@@ -112,7 +112,7 @@ function LogDetailDialog({
           {log.git_operations.length > 0 && (
             <div>
               <h4 className="font-medium mb-1">
-                Git Operations ({log.git_operations.length})
+                Git操作（{log.git_operations.length}件）
               </h4>
               <pre className="bg-muted p-3 rounded-md overflow-x-auto text-xs max-h-40 overflow-y-auto">
                 {JSON.stringify(log.git_operations, null, 2)}
@@ -122,7 +122,7 @@ function LogDetailDialog({
 
           {log.error != null && (
             <div>
-              <h4 className="font-medium mb-1 text-destructive">Error</h4>
+              <h4 className="font-medium mb-1 text-destructive">エラー</h4>
               <pre className="bg-destructive/10 p-3 rounded-md overflow-x-auto text-xs">
                 {JSON.stringify(log.error, null, 2)}
               </pre>
@@ -154,15 +154,15 @@ export function LogsView() {
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-2xl font-bold tracking-tight">Logs</h2>
+        <h2 className="text-2xl font-bold tracking-tight">ログ</h2>
         <p className="text-muted-foreground">
-          All Claude Code API requests across clients
+          全クライアントのClaude Code APIリクエスト履歴
         </p>
       </div>
 
       <div className="flex gap-2">
         <Input
-          placeholder="Filter by client ID..."
+          placeholder="クライアントIDで絞り込み..."
           value={clientFilter}
           onChange={(e) => {
             setClientFilter(e.target.value);
@@ -176,24 +176,24 @@ export function LogsView() {
         <CardContent className="p-0">
           {isLoading ? (
             <div className="p-8 text-center text-muted-foreground">
-              Loading...
+              読み込み中...
             </div>
           ) : !data || data.logs.length === 0 ? (
             <div className="p-8 text-center text-muted-foreground">
-              No logs found
+              ログが見つかりません
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Time</TableHead>
-                  <TableHead>Client</TableHead>
-                  <TableHead>Model</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Latency</TableHead>
-                  <TableHead>Tokens</TableHead>
-                  <TableHead>Tools</TableHead>
-                  <TableHead>Cost</TableHead>
+                  <TableHead>日時</TableHead>
+                  <TableHead>クライアント</TableHead>
+                  <TableHead>モデル</TableHead>
+                  <TableHead>ステータス</TableHead>
+                  <TableHead>レイテンシ</TableHead>
+                  <TableHead>トークン</TableHead>
+                  <TableHead>ツール</TableHead>
+                  <TableHead>コスト</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -230,7 +230,7 @@ export function LogsView() {
                     <TableCell>
                       {log.tool_calls.length > 0 && (
                         <Badge variant="outline">
-                          {log.tool_calls.length} tools
+                          {log.tool_calls.length} 件
                         </Badge>
                       )}
                     </TableCell>
@@ -247,7 +247,7 @@ export function LogsView() {
         {totalPages > 1 && (
           <div className="flex items-center justify-between px-4 py-3 border-t">
             <span className="text-sm text-muted-foreground">
-              Page {page} of {totalPages} ({data?.total} total)
+              {page} / {totalPages} ページ（全 {data?.total} 件）
             </span>
             <div className="flex gap-2">
               <Button

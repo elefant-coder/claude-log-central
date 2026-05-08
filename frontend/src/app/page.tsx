@@ -38,7 +38,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
           <Lock className="w-12 h-12 mx-auto text-muted-foreground" />
           <h1 className="text-2xl font-bold">Claude Log Central</h1>
           <p className="text-sm text-muted-foreground">
-            Enter your admin API key to access the dashboard
+            管理者APIキーを入力してログインしてください
           </p>
         </div>
         <form
@@ -56,7 +56,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
             onChange={(e) => setInput(e.target.value)}
           />
           <Button type="submit" className="w-full">
-            Authenticate
+            ログイン
           </Button>
         </form>
       </div>
@@ -65,11 +65,11 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 }
 
 const NAV_ITEMS = [
-  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { id: "logs", label: "Logs", icon: FileText },
-  { id: "sessions", label: "Sessions", icon: Activity },
-  { id: "search", label: "Search", icon: Search },
-  { id: "instructions", label: "Instructions", icon: Send },
+  { id: "dashboard", label: "ダッシュボード", icon: LayoutDashboard },
+  { id: "logs", label: "ログ", icon: FileText },
+  { id: "sessions", label: "セッション", icon: Activity },
+  { id: "search", label: "検索", icon: Search },
+  { id: "instructions", label: "指示出し", icon: Send },
 ] as const;
 
 type View = (typeof NAV_ITEMS)[number]["id"];
@@ -87,7 +87,7 @@ export default function Home() {
               Claude Log Central
             </h1>
             <p className="text-xs text-muted-foreground mt-1">
-              Multi-client monitoring
+              マルチクライアント監視
             </p>
           </div>
           <div className="flex-1 p-2 space-y-1">
@@ -115,7 +115,7 @@ export default function Home() {
               className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
             >
               <Settings className="w-4 h-4" />
-              Logout
+              ログアウト
             </button>
           </div>
         </nav>

@@ -39,24 +39,31 @@ import { CheckCircle2, Clock, Send, XCircle, Ban } from "lucide-react";
 const STATUS_FILTERS = ["all", "pending", "delivered", "cancelled"] as const;
 type StatusFilter = (typeof STATUS_FILTERS)[number];
 
+const STATUS_LABEL_JA: Record<StatusFilter, string> = {
+  all: "すべて",
+  pending: "待機中",
+  delivered: "配信済み",
+  cancelled: "キャンセル",
+};
+
 function StatusBadge({ status }: { status: InstructionEntry["status"] }) {
   if (status === "pending") {
     return (
       <Badge variant="secondary" className="gap-1">
-        <Clock className="h-3 w-3" /> pending
+        <Clock className="h-3 w-3" /> 待機中
       </Badge>
     );
   }
   if (status === "delivered") {
     return (
       <Badge className="gap-1 bg-green-600 hover:bg-green-600/90">
-        <CheckCircle2 className="h-3 w-3" /> delivered
+        <CheckCircle2 className="h-3 w-3" /> 配信済み
       </Badge>
     );
   }
   return (
     <Badge variant="outline" className="gap-1 text-muted-foreground">
-      <XCircle className="h-3 w-3" /> cancelled
+      <XCircle className="h-3 w-3" /> キャンセル
     </Badge>
   );
 }
@@ -125,36 +132,33 @@ export function InstructionsView() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold tracking-tight">Instructions</h2>
+        <h2 className="text-2xl font-bold tracking-tight">指示出し</h2>
         <p className="text-muted-foreground">
-          Send operator-level guidance to a remote Claude Code client. The
-          instruction is delivered as a system reminder on the client&apos;s next
-          request through this proxy.
+          リモートのClaude Codeに指示を届けます。送信した内容は、対象クライアントが次にこのプロキシ経由でAnthropic APIを叩いた瞬間にシステムリマインダーとして自動で挿入されます。
         </p>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Send className="h-4 w-4" /> New Instruction
+            <Send className="h-4 w-4" /> 新しい指示を送る
           </CardTitle>
           <CardDescription>
-            Target a specific client by ID. Leave session ID blank to broadcast
-            to any session of that client.
+            クライアントIDで送信先を指定します。セッションIDを空にすると、そのクライアントの全セッションに届きます。
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div className="space-y-1">
-                <label className="text-xs font-medium">Client ID *</label>
+                <label className="text-xs font-medium">クライアントID *</label>
                 {knownClients.length > 0 ? (
                   <Select
                     value={clientId}
                     onValueChange={(v) => setClientId(v ?? "")}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select or type a client" />
+                      <SelectValue placeholder="既存のクライアントから選択" />
                     </SelectTrigger>
                     <SelectContent>
                       {knownClients.map((c) => (
@@ -166,7 +170,7 @@ export function InstructionsView() {
                   </Select>
                 ) : null}
                 <Input
-                  placeholder="client-id (e.g. acme-corp)"
+                  placeholder="例: acme-corp"
                   value={clientId}
                   onChange={(e) => setClientId(e.target.value)}
                   required
@@ -174,16 +178,16 @@ export function InstructionsView() {
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-medium">
-                  Session ID (optional)
+                  セッションID（任意）
                 </label>
                 <Input
-                  placeholder="leave blank for any session"
+                  placeholder="空欄なら全セッション対象"
                   value={sessionId}
                   onChange={(e) => setSessionId(e.target.value)}
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-medium">Priority</label>
+                <label className="text-xs font-medium">優先度</label>
                 <Input
                   type="number"
                   value={priority}
@@ -193,30 +197,29 @@ export function InstructionsView() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-medium">Instruction *</label>
+              <label className="text-xs font-medium">指示内容 *</label>
               <textarea
                 className="flex min-h-[120px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                placeholder='ここを直してほしい: app/foo.tsx の handleSubmit が...'
+                placeholder="例: app/foo.tsx の handleSubmit にバリデーションが抜けているので追加して、テストもお願い。"
                 value={instructionText}
                 onChange={(e) => setInstructionText(e.target.value)}
                 required
               />
               <p className="text-xs text-muted-foreground">
-                The text below will be wrapped in a {"<system-reminder>"} block
-                and prepended/appended to the next user message.
+                上の内容は {"<system-reminder>"} ブロックに包まれて、次回のユーザーメッセージに添付されます。
               </p>
             </div>
 
             <div className="flex items-center justify-between">
               <p className="text-xs text-muted-foreground">
                 {createMut.isError
-                  ? `Error: ${(createMut.error as Error).message}`
+                  ? `エラー: ${(createMut.error as Error).message}`
                   : createMut.isSuccess
-                    ? "Queued."
+                    ? "キューに追加しました。"
                     : ""}
               </p>
               <Button type="submit" disabled={createMut.isPending}>
-                {createMut.isPending ? "Sending..." : "Queue Instruction"}
+                {createMut.isPending ? "送信中..." : "キューに追加"}
               </Button>
             </div>
           </form>
@@ -226,9 +229,9 @@ export function InstructionsView() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
-            <CardTitle>Queue & History</CardTitle>
+            <CardTitle>キュー & 履歴</CardTitle>
             <CardDescription>
-              {pendingCount} pending · {instructions.length} shown
+              待機中 {pendingCount} 件 ・ 表示中 {instructions.length} 件
             </CardDescription>
           </div>
           <div className="flex gap-2">
@@ -240,7 +243,7 @@ export function InstructionsView() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="__all__">All clients</SelectItem>
+                <SelectItem value="__all__">すべてのクライアント</SelectItem>
                 {knownClients.map((c) => (
                   <SelectItem key={c} value={c}>
                     {c}
@@ -260,7 +263,7 @@ export function InstructionsView() {
               <SelectContent>
                 {STATUS_FILTERS.map((s) => (
                   <SelectItem key={s} value={s}>
-                    {s}
+                    {STATUS_LABEL_JA[s]}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -270,21 +273,21 @@ export function InstructionsView() {
         <CardContent>
           {isLoading ? (
             <div className="text-muted-foreground text-sm py-8 text-center">
-              Loading...
+              読み込み中...
             </div>
           ) : instructions.length === 0 ? (
             <div className="text-muted-foreground text-sm py-8 text-center">
-              No instructions yet.
+              指示はまだありません。
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[110px]">Status</TableHead>
-                  <TableHead className="w-[140px]">Client</TableHead>
-                  <TableHead>Instruction</TableHead>
-                  <TableHead className="w-[160px]">Created</TableHead>
-                  <TableHead className="w-[160px]">Delivered</TableHead>
+                  <TableHead className="w-[110px]">状態</TableHead>
+                  <TableHead className="w-[140px]">クライアント</TableHead>
+                  <TableHead>指示内容</TableHead>
+                  <TableHead className="w-[160px]">作成日時</TableHead>
+                  <TableHead className="w-[160px]">配信日時</TableHead>
                   <TableHead className="w-[80px]"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -322,7 +325,7 @@ export function InstructionsView() {
                           size="sm"
                           onClick={() => cancelMut.mutate(inst.id)}
                           disabled={cancelMut.isPending}
-                          title="Cancel"
+                          title="キャンセル"
                         >
                           <Ban className="h-3 w-3" />
                         </Button>
