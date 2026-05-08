@@ -234,16 +234,23 @@ async def get_client_capabilities(
     """
     logs, _ = await get_logs(db, client_id=client_id, page=1, page_size=sample)
 
-    # latest "real" turn = most recent log with substantial system_prompt
-    latest = next(
-        (
-            l for l in logs
-            if (l.system_prompt or "")
-            and len(l.system_prompt or "") > 1000
-            and (l.model or "").lower().find("haiku") == -1
-        ),
-        None,
-    )
+    # Pick the most representative log: prefer the recent Opus/Sonnet request
+    # that advertised the **most** tools. Subagent calls and Task contexts often
+    # send a slimmed-down tools list, so naively picking "the latest" gives a
+    # misleading "tools shrunk!" view. A request with more tools = closer to the
+    # full main-thread capability profile.
+    candidates = [
+        l for l in logs
+        if (l.system_prompt or "")
+        and len(l.system_prompt or "") > 1000
+        and (l.model or "").lower().find("haiku") == -1
+    ]
+
+    def _tool_count(l):
+        meta = l.metadata_ or {}
+        return meta.get("available_tools_count", 0)
+
+    latest = max(candidates, key=_tool_count, default=None)
 
     def _to_dict(l):
         return {
