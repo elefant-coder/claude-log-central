@@ -68,6 +68,34 @@ def extract_tool_results(messages: list[dict]) -> list[dict]:
     return results
 
 
+def is_user_facing_request(model: str | None, system_prompt: str | None, messages: list) -> bool:
+    """Filter out Claude Code's internal/background calls.
+
+    Claude Code uses Haiku for short internal tasks like the auto-mode classifier,
+    quota checks, and tool gating. These calls have no user-visible side-effects
+    and no access to the user's MCP tools, so injecting an operator instruction
+    into one wastes the instruction (it gets marked delivered but the model can't
+    actually act on it).
+
+    The real user-facing conversation always uses Opus/Sonnet AND carries the
+    giant Claude Code system prompt (typically 10KB+). Skip anything that doesn't
+    match both.
+    """
+    if not model:
+        return False
+    m = model.lower()
+    if "haiku" in m:
+        return False
+    # The Claude Code system prompt is always large; internal calls have empty or tiny system.
+    if not system_prompt or len(system_prompt) < 1000:
+        return False
+    # Single-message user-prompt-only calls (e.g. {"role":"user","content":"quota"}) are
+    # definitely internal — real conversations have multiple turns or substantial content.
+    if len(messages) == 0:
+        return False
+    return True
+
+
 def render_instructions_reminder(instructions: list) -> str:
     """Render queued operator instructions as a single system-reminder block.
 
@@ -184,26 +212,37 @@ async def proxy_messages(request: Request):
 
     # Inject any pending operator instructions for this client/session.
     # We do this BEFORE forwarding so the model sees them in this same turn.
+    # Skip Claude Code's internal/background calls (Haiku classifier etc.) so
+    # the instruction reaches the actual user conversation.
     delivered_instruction_ids: list = []
-    try:
-        async with async_session() as db:
-            pending = await fetch_pending_for_client(
-                db, client_id=client_id, session_id=session_id,
-            )
-            if pending:
-                reminder = render_instructions_reminder(pending)
-                inject_instructions_into_body(body, reminder)
-                delivered_instruction_ids = [p.id for p in pending]
-                # `messages` is the same list reference inside body — re-bind for clarity
-                messages = body.get("messages", messages)
-                logger.info(
-                    "injected operator instructions",
-                    client_id=client_id,
-                    session_id=session_id,
-                    count=len(pending),
+    if is_user_facing_request(model, system_prompt, messages):
+        try:
+            async with async_session() as db:
+                pending = await fetch_pending_for_client(
+                    db, client_id=client_id, session_id=session_id,
                 )
-    except Exception as e:
-        logger.error("failed to inject instructions", error=str(e))
+                if pending:
+                    reminder = render_instructions_reminder(pending)
+                    inject_instructions_into_body(body, reminder)
+                    delivered_instruction_ids = [p.id for p in pending]
+                    # `messages` is the same list reference inside body — re-bind for clarity
+                    messages = body.get("messages", messages)
+                    logger.info(
+                        "injected operator instructions",
+                        client_id=client_id,
+                        session_id=session_id,
+                        count=len(pending),
+                        model=model,
+                    )
+        except Exception as e:
+            logger.error("failed to inject instructions", error=str(e))
+    else:
+        logger.debug(
+            "skipped instruction injection on internal call",
+            client_id=client_id,
+            model=model,
+            sys_len=len(system_prompt or ""),
+        )
 
     target_url = f"{settings.anthropic_api_url}/v1/messages"
 
