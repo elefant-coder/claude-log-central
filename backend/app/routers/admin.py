@@ -24,7 +24,9 @@ from app.schemas.instructions import (
 from app.schemas.profiles import (
     ClientProfileEntry, ClientProfileListResponse, ClientProfileUpsert,
     ClientRenameRequest, ClientRenameResponse,
+    TelegramTestRequest, TelegramTestResponse, TelegramStatusResponse,
 )
+from app.services import telegram as tg
 
 router = APIRouter(prefix="/api", dependencies=[Depends(verify_admin_key)])
 
@@ -153,9 +155,31 @@ def profile_to_entry(p: ClientProfile) -> ClientProfileEntry:
         device=p.device,
         description=p.description,
         color=p.color,
+        telegram_chat_id=p.telegram_chat_id,
         created_at=p.created_at,
         updated_at=p.updated_at,
     )
+
+
+@router.get("/telegram/status", response_model=TelegramStatusResponse)
+async def telegram_status():
+    """Report whether the Telegram bot integration is configured."""
+    return TelegramStatusResponse(configured=tg.is_configured())
+
+
+@router.post("/telegram/test", response_model=TelegramTestResponse)
+async def telegram_test(payload: TelegramTestRequest):
+    """Send a test message to a Telegram chat. Useful for verifying setup."""
+    if not tg.is_configured():
+        raise HTTPException(
+            status_code=503,
+            detail="Telegram bot token is not configured on the server.",
+        )
+    try:
+        result = await tg.send_message(payload.chat_id, payload.text)
+        return TelegramTestResponse(ok=True, message_id=result.get("message_id"))
+    except tg.TelegramError as e:
+        return TelegramTestResponse(ok=False, message=str(e))
 
 
 @router.get("/client-profiles", response_model=ClientProfileListResponse)
@@ -189,6 +213,7 @@ async def upsert_client_profile(
         device=payload.device,
         description=payload.description,
         color=payload.color,
+        telegram_chat_id=payload.telegram_chat_id,
     )
     return profile_to_entry(row)
 
@@ -241,6 +266,11 @@ async def create_instruction_endpoint(
 
     Delivered as a system-reminder block on the next proxied request from the
     matching client_id (and session_id if specified).
+
+    Side effect: if the target client has a telegram_chat_id configured AND
+    the Telegram bot is configured server-side, also pushes a Telegram
+    notification so the operator (or the receiving Claude Code via curl)
+    can act even when the device is offline.
     """
     inst = await create_instruction(
         db,
@@ -251,6 +281,25 @@ async def create_instruction_endpoint(
         note=payload.note,
         created_by="operator",
     )
+
+    # Best-effort Telegram notification — never fail the create just because TG is down
+    if tg.is_configured():
+        profile = await get_profile(db, payload.client_id)
+        if profile and profile.telegram_chat_id:
+            try:
+                msg = tg.format_instruction_notification(
+                    instruction_text=payload.instruction,
+                    client_id=payload.client_id,
+                    company=profile.company,
+                    person_name=profile.person_name,
+                    device=profile.device,
+                    instruction_id=str(inst.id),
+                    priority=payload.priority,
+                )
+                await tg.send_message(profile.telegram_chat_id, msg)
+            except tg.TelegramError:
+                pass  # logged inside the service; instruction itself still queued
+
     return instruction_to_entry(inst)
 
 
@@ -295,6 +344,33 @@ async def cancel_instruction_endpoint(
             detail="Instruction not found or already delivered",
         )
     return None
+
+
+@router.post("/instructions/poll", response_model=InstructionListResponse)
+async def poll_pending_instructions(
+    client_id: str = Query(..., min_length=1),
+    session_id: str | None = Query(default=None),
+    mark_delivered: bool = Query(default=True),
+    db: AsyncSession = Depends(get_db),
+):
+    """Pull pending instructions for a client and (optionally) mark them delivered.
+
+    Designed for the Mac mini SessionStart hook: the client polls this on
+    Claude Code startup, gets any pending operator instructions, and emits
+    them as additionalContext via the hook contract. Setting mark_delivered=true
+    moves them out of the queue so they don't pile up across sessions.
+    """
+    from app.crud.instructions import fetch_pending_for_client, mark_delivered as _mark
+    import uuid as _uuid
+
+    rows = await fetch_pending_for_client(db, client_id=client_id, session_id=session_id)
+    if mark_delivered and rows:
+        await _mark(db, [r.id for r in rows], request_id=f"poll-{_uuid.uuid4()}")
+
+    return InstructionListResponse(
+        instructions=[instruction_to_entry(r) for r in rows],
+        total=len(rows),
+    )
 
 
 @router.post("/analyze", response_model=AnalyzeResponse)

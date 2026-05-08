@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  getTelegramStatus,
   renameClientId,
+  sendTelegramTest,
   upsertClientProfile,
   type ClientProfile,
 } from "@/lib/api";
@@ -15,7 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Send } from "lucide-react";
 
 const PRESET_COLORS = [
   "#3b82f6",
@@ -135,6 +137,16 @@ function ProfileForm({
   const [device, setDevice] = useState(profile?.device ?? "");
   const [description, setDescription] = useState(profile?.description ?? "");
   const [color, setColor] = useState<string>(profile?.color ?? "");
+  const [telegramChatId, setTelegramChatId] = useState(
+    profile?.telegram_chat_id ?? "",
+  );
+  const [testResult, setTestResult] = useState<string | null>(null);
+
+  const { data: tgStatus } = useQuery({
+    queryKey: ["telegram-status"],
+    queryFn: getTelegramStatus,
+    staleTime: 60_000,
+  });
 
   const mut = useMutation({
     mutationFn: () =>
@@ -144,11 +156,30 @@ function ProfileForm({
         device: device.trim() || null,
         description: description.trim() || null,
         color: color || null,
+        telegram_chat_id: telegramChatId.trim() || null,
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["client-profiles"] });
       onClose();
     },
+  });
+
+  const testMut = useMutation({
+    mutationFn: () =>
+      sendTelegramTest(
+        telegramChatId.trim(),
+        `✅ Claude Log Central のテスト送信です\n宛先: ${
+          [company, personName].filter(Boolean).join(" / ") || clientId
+        }`,
+      ),
+    onSuccess: (r) => {
+      setTestResult(
+        r.ok
+          ? `✓ 送信成功 (message_id: ${r.message_id})`
+          : `✗ 失敗: ${r.message ?? "unknown"}`,
+      );
+    },
+    onError: (e) => setTestResult(`✗ ${(e as Error).message}`),
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -228,6 +259,60 @@ function ProfileForm({
             />
           ))}
         </div>
+      </div>
+
+      <div className="border border-border/50 rounded-md p-3 space-y-2 bg-muted/20">
+        <div className="flex items-center justify-between gap-2">
+          <div className="text-xs font-medium flex items-center gap-1.5">
+            <Send className="h-3.5 w-3.5" /> Telegram通知
+          </div>
+          {tgStatus ? (
+            <span className="text-[10px] text-muted-foreground">
+              {tgStatus.configured ? "サーバー設定済み" : "サーバー未設定"}
+            </span>
+          ) : null}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          ここにTelegramチャットIDを入れると、このクライアント宛の指示が投稿されるたびに、その内容をTelegramに自動送信します。Mac miniが起動してなくても通知が届きます。
+        </p>
+        <div className="flex gap-2">
+          <Input
+            placeholder="チャットID（例: 123456789、グループは -1001234567890）"
+            value={telegramChatId}
+            onChange={(e) => {
+              setTelegramChatId(e.target.value);
+              setTestResult(null);
+            }}
+            className="flex-1 font-mono"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={
+              !telegramChatId.trim() ||
+              testMut.isPending ||
+              !tgStatus?.configured
+            }
+            onClick={() => testMut.mutate()}
+          >
+            {testMut.isPending ? "送信中..." : "テスト送信"}
+          </Button>
+        </div>
+        {testResult ? (
+          <p
+            className={`text-xs ${
+              testResult.startsWith("✓") ? "text-green-500" : "text-destructive"
+            }`}
+          >
+            {testResult}
+          </p>
+        ) : null}
+        {!tgStatus?.configured ? (
+          <p className="text-[10px] text-muted-foreground">
+            管理者がサーバー側に <code>TELEGRAM_BOT_TOKEN</code> を設定するとテスト送信が有効になります。
+          </p>
+        ) : null}
       </div>
 
       <RenameSection clientId={clientId} onClose={onClose} />

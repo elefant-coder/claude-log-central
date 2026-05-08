@@ -70,6 +70,63 @@ curl -X POST -H "Authorization: Bearer clc_admin_key_change_me" \
   -d '{"client_id": "client-a", "query": "error"}'
 ```
 
+## Operator Instructions (送信→配信)
+
+クライアントのClaude Codeへ遠隔で指示を送信できます。
+
+### 配信経路（2系統 + 通知1系統）
+
+1. **プロキシ注入**: 対象クライアントが次にプロキシ経由でAnthropic APIを叩いた瞬間、最新のuserメッセージに `<system-reminder>` として自動挿入されます。Haikuや内部呼び出しは除外。
+2. **SessionStart hook**: クライアントの `~/.claude/settings.json` に `scripts/clc-session-start.sh` を仕込むと、Claude Codeが新セッションを開始した瞬間にCentral APIをポーリングして pending 指示を `additionalContext` として注入。プロキシを通らないコマンドや起動直後でも届く。
+3. **Telegram通知**: クライアントプロフィールに `telegram_chat_id` を設定すると、指示作成時に自動でTelegramへ通知を送信。デバイスがオフラインでも届く。
+
+### Telegram Bot のセットアップ
+
+1. Telegramで `@BotFather` を開く
+2. `/newbot` → ボット名・ユーザー名を決めて作成、トークン（`123456789:AAExxx...` 形式）を控える
+3. 通知を受け取りたいチャット（自分宛DMでもグループでもOK）でボットに何か発言する
+4. `https://api.telegram.org/bot<TOKEN>/getUpdates` をブラウザで開いて、`message.chat.id` を控える
+5. **Railway**: `Variables` に `TELEGRAM_BOT_TOKEN=<TOKEN>` を追加 → 再デプロイ
+6. **Central UI**: ダッシュボード → 対象クライアント行の編集 → Telegramセクションに `chat_id` を入力 → 「テスト送信」で疎通確認
+
+### Mac mini SessionStart hook 設置（オフラインでも届く根本対策）
+
+```bash
+# 1. ホストにスクリプト配置
+curl -fsSL https://raw.githubusercontent.com/elefant-coder/claude-log-central/main/scripts/clc-session-start.sh \
+  -o ~/.claude/clc-session-start.sh
+chmod +x ~/.claude/clc-session-start.sh
+
+# 2. 環境変数を ~/.zshenv に追加
+cat >> ~/.zshenv <<'EOF'
+export CLC_BASE_URL="https://backend-production-22667.up.railway.app"
+export CLC_ADMIN_KEY="clc_admin_..."
+export CLC_CLIENT_ID="elefant-mac-mini"
+EOF
+
+# 3. ~/.claude/settings.json に hook 設定を追加
+#    （既存hooksとマージしてください）
+```
+
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          { "type": "command", "command": "$HOME/.claude/clc-session-start.sh" }
+        ]
+      }
+    ]
+  }
+}
+```
+
+これで:
+- Mac miniでClaude Codeを起動するたびに pending 指示を自動取得
+- プロキシを通らないclaude起動直後でも届く
+- 取得済みは自動で `delivered` になりキューから消える
+
 ## Environment Variables
 
 | Variable | Default | Description |
@@ -77,6 +134,7 @@ curl -X POST -H "Authorization: Bearer clc_admin_key_change_me" \
 | `POSTGRES_PASSWORD` | `claude_logs_secret_2026` | PostgreSQL password |
 | `ADMIN_API_KEY` | `clc_admin_key_change_me` | Dashboard & API auth key |
 | `ANTHROPIC_API_URL` | `https://api.anthropic.com` | Upstream Anthropic API |
+| `TELEGRAM_BOT_TOKEN` | (空) | Telegram Bot のトークン。設定すると指示作成時に自動通知が有効化 |
 
 ## Security Notes
 

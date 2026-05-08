@@ -57,6 +57,7 @@ CLIENT_PROFILES_DDL_STATEMENTS = [
     )
     """,
     "ALTER TABLE client_profiles ADD COLUMN IF NOT EXISTS device VARCHAR(128)",
+    "ALTER TABLE client_profiles ADD COLUMN IF NOT EXISTS telegram_chat_id VARCHAR(64)",
 ]
 
 

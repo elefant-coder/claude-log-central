@@ -28,6 +28,7 @@ async def upsert_profile(
     device: str | None,
     description: str | None,
     color: str | None,
+    telegram_chat_id: str | None,
 ) -> ClientProfile:
     now = datetime.utcnow()
     stmt = pg_insert(ClientProfile).values(
@@ -37,6 +38,7 @@ async def upsert_profile(
         device=device,
         description=description,
         color=color,
+        telegram_chat_id=telegram_chat_id,
         created_at=now,
         updated_at=now,
     )
@@ -48,6 +50,7 @@ async def upsert_profile(
             "device": device,
             "description": description,
             "color": color,
+            "telegram_chat_id": telegram_chat_id,
             "updated_at": now,
         },
     )

@@ -145,6 +145,7 @@ export interface ClientProfile {
   device: string | null;
   description: string | null;
   color: string | null;
+  telegram_chat_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -166,11 +167,29 @@ export async function upsertClientProfile(
     device?: string | null;
     description?: string | null;
     color?: string | null;
+    telegram_chat_id?: string | null;
   },
 ): Promise<ClientProfile> {
   return apiFetch(`/api/client-profiles/${encodeURIComponent(client_id)}`, {
     method: "PUT",
     body: payload,
+  });
+}
+
+export async function getTelegramStatus(): Promise<{
+  configured: boolean;
+  bot_username: string | null;
+}> {
+  return apiFetch("/api/telegram/status");
+}
+
+export async function sendTelegramTest(
+  chat_id: string,
+  text: string,
+): Promise<{ ok: boolean; message: string | null; message_id: number | null }> {
+  return apiFetch("/api/telegram/test", {
+    method: "POST",
+    body: { chat_id, text },
   });
 }
 

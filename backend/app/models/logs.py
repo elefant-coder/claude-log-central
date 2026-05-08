@@ -18,6 +18,7 @@ class ClientProfile(Base):
     device = Column(String(128), nullable=True)
     description = Column(Text, nullable=True)
     color = Column(String(16), nullable=True)
+    telegram_chat_id = Column(String(64), nullable=True)
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 

@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     admin_api_key: str = "clc_admin_key_change_me"
     cors_origins: str = '["http://localhost:3100"]'
     log_retention_days: int = 90
+    telegram_bot_token: str = ""
 
     @property
     def cors_origins_list(self) -> list[str]:

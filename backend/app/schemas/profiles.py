@@ -9,6 +9,7 @@ class ClientProfileEntry(BaseModel):
     device: str | None = None
     description: str | None = None
     color: str | None = None
+    telegram_chat_id: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -19,6 +20,23 @@ class ClientProfileUpsert(BaseModel):
     device: str | None = Field(default=None, max_length=128)
     description: str | None = Field(default=None, max_length=2000)
     color: str | None = Field(default=None, max_length=16)
+    telegram_chat_id: str | None = Field(default=None, max_length=64)
+
+
+class TelegramTestRequest(BaseModel):
+    chat_id: str = Field(min_length=1, max_length=64)
+    text: str = Field(default="✅ Claude Log Central からのテスト送信です", max_length=2000)
+
+
+class TelegramTestResponse(BaseModel):
+    ok: bool
+    message: str | None = None
+    message_id: int | None = None
+
+
+class TelegramStatusResponse(BaseModel):
+    configured: bool
+    bot_username: str | None = None
 
 
 class ClientProfileListResponse(BaseModel):
