@@ -2,6 +2,9 @@
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
+from sqlalchemy import cast as sa_cast, distinct, select, update, String as SA_String
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
@@ -13,7 +16,7 @@ from app.crud.instructions import (
 from app.crud.profiles import (
     list_profiles, get_profile, upsert_profile, rename_client_id,
 )
-from app.models.logs import ClientProfile, Instruction
+from app.models.logs import ClaudeLog, ClaudeSession, ClientProfile, Instruction
 from app.schemas.logs import (
     LogListResponse, LogEntry, SessionListResponse, SessionEntry,
     DashboardStats, ClientStats, SearchRequest, AnalyzeRequest, AnalyzeResponse,
@@ -272,6 +275,125 @@ async def get_client_capabilities(
         sample_size=len(logs),
         last_seen=last_seen,
         **summary,
+    )
+
+
+class MigrateByContentRequest(BaseModel):
+    from_client_id: str
+    to_client_id: str = Field(min_length=1, max_length=64, pattern=r"^[a-zA-Z0-9_\-\.]+$")
+    content_match: str = Field(min_length=3, max_length=200)
+    dry_run: bool = False
+
+
+class MigrateByContentResponse(BaseModel):
+    matched_session_ids: list[str]
+    logs_moved: int
+    sessions_moved: int
+    profile_created: bool
+    dry_run: bool
+
+
+@router.post("/admin/migrate-by-content", response_model=MigrateByContentResponse)
+async def migrate_by_content(
+    payload: MigrateByContentRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Move logs+sessions from one client_id to another, filtered by prompt content.
+
+    Use case: a client connected without setting x-client-id, so their data
+    landed in the default `unknown` bucket and got mixed with another client.
+    Pass a fingerprint string that only their requests contain (typically
+    a unique filesystem path like '/Users/zuma/'), and we migrate every
+    session that has at least one log matching that string.
+
+    Set dry_run=true to preview the affected session_ids without writing.
+    """
+    if payload.from_client_id == payload.to_client_id:
+        raise HTTPException(status_code=400, detail="from and to must differ")
+
+    # Step 1: identify distinct session_ids in `from` whose prompt or
+    # system_prompt contains the fingerprint
+    pattern = f"%{payload.content_match}%"
+    sessions_q = (
+        select(distinct(ClaudeLog.session_id))
+        .where(ClaudeLog.client_id == payload.from_client_id)
+        .where(
+            sa_cast(ClaudeLog.prompt, SA_String).ilike(pattern)
+            | ClaudeLog.system_prompt.ilike(pattern)
+        )
+    )
+    result = await db.execute(sessions_q)
+    matched_session_ids = [row[0] for row in result.all() if row[0]]
+
+    if not matched_session_ids:
+        return MigrateByContentResponse(
+            matched_session_ids=[],
+            logs_moved=0,
+            sessions_moved=0,
+            profile_created=False,
+            dry_run=payload.dry_run,
+        )
+
+    if payload.dry_run:
+        return MigrateByContentResponse(
+            matched_session_ids=matched_session_ids,
+            logs_moved=0,
+            sessions_moved=0,
+            profile_created=False,
+            dry_run=True,
+        )
+
+    # Step 2: bulk update claude_logs whose session_id is in matched set
+    log_update = await db.execute(
+        update(ClaudeLog)
+        .where(ClaudeLog.client_id == payload.from_client_id)
+        .where(ClaudeLog.session_id.in_(matched_session_ids))
+        .values(client_id=payload.to_client_id)
+    )
+
+    # Step 3: bulk update claude_sessions row by row (UNIQUE(client_id, session_id) constraint)
+    sessions_moved = 0
+    for sid in matched_session_ids:
+        # If a target session already exists with same (to_client_id, sid), skip to avoid violation
+        existing = await db.execute(
+            select(ClaudeSession).where(
+                ClaudeSession.client_id == payload.to_client_id,
+                ClaudeSession.session_id == sid,
+            )
+        )
+        if existing.scalar_one_or_none():
+            continue
+        res = await db.execute(
+            update(ClaudeSession)
+            .where(ClaudeSession.client_id == payload.from_client_id)
+            .where(ClaudeSession.session_id == sid)
+            .values(client_id=payload.to_client_id)
+        )
+        sessions_moved += res.rowcount or 0
+
+    # Step 4: ensure a profile exists for the new client_id
+    profile_existed = await db.execute(
+        select(ClientProfile).where(ClientProfile.client_id == payload.to_client_id)
+    )
+    profile_created = False
+    if profile_existed.scalar_one_or_none() is None:
+        await db.execute(
+            pg_insert(ClientProfile).values(
+                client_id=payload.to_client_id,
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow(),
+            )
+        )
+        profile_created = True
+
+    await db.commit()
+
+    return MigrateByContentResponse(
+        matched_session_ids=matched_session_ids,
+        logs_moved=log_update.rowcount or 0,
+        sessions_moved=sessions_moved,
+        profile_created=profile_created,
+        dry_run=False,
     )
 
 
