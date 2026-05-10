@@ -82,21 +82,31 @@ claude  # 通常通り起動
 
 ---
 
-## 3. 配信経路の仕組み（3系統）
+## 3. 配信経路の仕組み（4系統）
 
 ```
 [オペレーター]
    │ 指示投稿
    ▼
 [Central API]
-   ├─① 即Telegram通知（chat_id設定済みなら）
-   ├─② 次回プロキシ通過時に <system-reminder> 注入
-   └─③ SessionStart hook が起動時にポーリング → additionalContext
+   ├─① 即Telegram通知（chat_id設定済みなら、人間向け）
+   ├─② 常駐エージェントが15秒以内にポーリング → claude -p で headless 実行 ★最強
+   ├─③ 次回プロキシ通過時に <system-reminder> 注入（旧方式）
+   └─④ SessionStart hook が起動時にポーリング → additionalContext（軽量版）
                   ▼
             [クライアントのClaude Code]
 ```
 
-3つは独立に走る。どれか1つでも届けば指示は到達する。
+4つは独立に走る。クライアントの設定状況によって発火経路が変わる：
+
+| クライアント設定 | 配信タイミング |
+|---|---|
+| 常駐エージェント (`install-agent.sh`) | **PC開いて15秒以内** ★ |
+| プロキシ経由 (`install.sh` で設定) | 相手が次に発言した瞬間 |
+| SessionStart hook | 相手がClaude Code起動した瞬間 |
+| 何も設定なし | Centralから来るTelegramのみ（人間が見て対応） |
+
+複数併用OK。常駐エージェントだけでも実用的。
 
 ### 重要な振る舞い
 

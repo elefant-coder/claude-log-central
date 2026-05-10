@@ -26,9 +26,51 @@ JSON
 
 ターミナルで Claude Code に何か話しかけて応答が返れば成功。オペレーター側のダッシュボードに自分のクライアントIDが行として現れる。
 
-## SessionStart hook（推奨・任意）
+## 常駐エージェント（最推奨・PC開いてれば常時届く）
 
-オフライン中にオペレーターが投稿した指示を、Claude Code 起動時に必ず受け取れるようにする。
+LaunchAgentとして常駐。Claude Codeを起動してなくても、PCがログイン済みであれば15秒以内に届く。
+
+### 必要な前提
+- macOS（Linuxはsystemd版を別途相談）
+- bash, curl, jq （macOS: `brew install jq`）
+- claude CLI
+
+### 設置手順（1行）
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/elefant-coder/claude-log-central/main/scripts/install-agent.sh \
+  | CLIENT_ID="<クライアントID>" CLC_ADMIN_KEY="<管理者APIキー>" bash
+```
+
+### 動作仕様
+
+- 15秒ごとにCentralをポーリング（間隔は `CLC_POLL_INTERVAL` で変更可能）
+- pending指示があれば `claude -p "<指示文>"` をheadlessで実行
+- 既存の対話セッションには干渉しない（並列の別プロセス）
+- クラッシュしても自動再起動（launchd `KeepAlive`）
+- ログイン後は自動起動（`RunAtLoad`）
+
+### 動作確認
+
+```bash
+# 常駐ログを覗く
+tail -f ~/.claude/clc-agent.log
+```
+
+`Started clc-agent` の行が出てて、15秒ごとに `poll: ...` が記録されてれば正常。
+
+### 解除
+
+```bash
+launchctl unload ~/Library/LaunchAgents/com.clc.agent.plist
+rm ~/Library/LaunchAgents/com.clc.agent.plist ~/.claude/clc-agent.sh
+```
+
+---
+
+## SessionStart hook（軽量版・任意）
+
+常駐エージェントを置きたくない場合の代替。Claude Code 起動時にCentralをポーリングして指示を取得する。
 
 ### 必要な前提
 - bash, curl, jq （macOS: `brew install jq`）

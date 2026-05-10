@@ -89,7 +89,22 @@ curl -X POST -H "Authorization: Bearer clc_admin_key_change_me" \
 5. **Railway**: `Variables` に `TELEGRAM_BOT_TOKEN=<TOKEN>` を追加 → 再デプロイ
 6. **Central UI**: ダッシュボード → 対象クライアント行の編集 → Telegramセクションに `chat_id` を入力 → 「テスト送信」で疎通確認
 
-### Mac mini SessionStart hook 設置（オフラインでも届く根本対策）
+### 常駐エージェント設置（PC開いてれば常時届く・最推奨）
+
+LaunchAgentとして常駐。Claude Code 起動状態を問わず、PCがログイン済みであれば15秒以内に届く。
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/elefant-coder/claude-log-central/main/scripts/install-agent.sh \
+  | CLIENT_ID="elefant-mac-mini" CLC_ADMIN_KEY="<管理者APIキー>" bash
+```
+
+挙動: 15秒ごとに `/api/instructions/poll` を叩き、pending があれば `claude -p "<指示文>"` を headless で実行。  
+ログ: `~/.claude/clc-agent.log`  
+解除: `launchctl unload ~/Library/LaunchAgents/com.clc.agent.plist`
+
+---
+
+### SessionStart hook 設置（軽量版・常駐エージェントを置きたくない場合）
 
 ```bash
 # 1. ホストにスクリプト配置
